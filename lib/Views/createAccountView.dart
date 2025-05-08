@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:provider/provider.dart';
+import 'package:vidamais/Providers/AuthProvider.dart';
 import 'package:vidamais/Services/AuthService.dart';
 import 'package:vidamais/Views/smsView.dart';
 
@@ -15,7 +16,6 @@ class CreateAccountView extends StatefulWidget {
 class _CreateAccountViewState extends State<CreateAccountView> {
   final _formKey = GlobalKey<FormState>();
 
-  // Controladores dos campos
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _dddController = TextEditingController();
@@ -23,7 +23,6 @@ class _CreateAccountViewState extends State<CreateAccountView> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  // Máscaras para CPF e celular
   final _cpfMaskFormatter = MaskTextInputFormatter(
       mask: '###.###.###-##', filter: {"#": RegExp(r'\d')});
   final _phoneMaskFormatter = MaskTextInputFormatter(
@@ -35,6 +34,7 @@ class _CreateAccountViewState extends State<CreateAccountView> {
   bool _isLoading = false;
 
   late AuthService authService;
+  late AuthProvider authProvider;
 
   Future<void> _selectDate() async {
     final DateTime? picked = await showDatePicker(
@@ -55,6 +55,7 @@ class _CreateAccountViewState extends State<CreateAccountView> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     authService = Provider.of<AuthService>(context, listen: false);
+    authProvider = Provider.of<AuthProvider>(context, listen: false);
   }
 
   @override
@@ -277,7 +278,6 @@ class _CreateAccountViewState extends State<CreateAccountView> {
                 ],
               ),
               const SizedBox(height: 24),
-              // Botão de criar conta com loading
               ElevatedButton(
                 onPressed: _isLoading
                     ? null
@@ -289,34 +289,38 @@ class _CreateAccountViewState extends State<CreateAccountView> {
                           setState(() {
                             _isLoading = true;
                           });
-
-                          final authResp = await authService.fakeCreateUser(
-                            name: _nameController.text,
-                            phone: _phoneController.text,
-                            cpf: _cpfController.text,
-                            password: _passwordController.text,
-                            birthDate: _birthDate!,
-                            gender: _selectedGender!,
-                          );
-
-                          setState(() {
-                            _isLoading = false;
-                          });
-
-                          if (authResp.error == null) {
-                            // Criação bem sucedida, direciona para a tela de SMS
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(builder: (_) => const SmsView()),
+                          try {
+                            
+                            final authResp = await authService.createUser(
+                              name: _nameController.text,
+                              phone: '+55' + _dddController.text + _phoneController.text,
+                              cpf: _cpfController.text,
+                              password: _passwordController.text,
+                              birthDate: _birthDate.toString(),
+                              gender: _selectedGender!,
                             );
-                          } else {
-                            // Exibe erro via SnackBar
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(authResp.error!)),
-                            );
+
+                            setState(() {
+                              _isLoading = false;
+                            });
+
+                            if (authResp.error == null) {
+                              authProvider.setUserPhone(authResp.user!.cellphone);
+                              await authService.saveLoginData(authResp.token!, authResp.user!.id!);
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(builder: (_) => const SmsView()),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(authResp.error!)),
+                              );
+                            }
+                          } finally {
+                            setState(() => _isLoading = false);
                           }
                         }
-                      },
+                      } ,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),

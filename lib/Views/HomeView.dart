@@ -220,7 +220,6 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
           subtitle: Text('Resultado disponível: 05/01/2024'),
           trailing: Icon(Icons.assignment),
         ),
-        // Adicione mais resultados
       ],
     );
   }

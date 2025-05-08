@@ -142,30 +142,32 @@ class _LoginViewState extends State<LoginView> {
                       ? null
                       : () async {
                           if (_formKey.currentState!.validate()) {
-                            setState(() {
-                              _isLoading = true;
-                            });
-                            final String cpfLimpo = _documentController.text.replaceAll(RegExp(r'[^0-9]'), '');
+                            setState(() => _isLoading = true);
                             
-                            // Chama o fakeLogin e aguarda a resposta
-                            final user = await authService.fakeLogin(
-                              cpfLimpo,
-                              _passwordController.text,
-                            );
-                            
-                            if (user != null) {
-                              // Exemplo: Armazenar algum dado (número do telefone) no provider
-                              authProvider.setUserPhone('5517...150');
-                              await authService.saveLoginData(user.token!, 'user123');
-                              // Navega para a tela de SMS
+                            try {
+                              final String cpfLimpo = _documentController.text.replaceAll(RegExp(r'[^0-9]'), '');
+                              
+                              final authResponse = await authService.login(
+                                cpfLimpo,
+                                _passwordController.text,
+                              );
+
+                              if (authResponse.error != null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(authResponse.error!)),
+                                );
+                                return;
+                              }
+
+                              authProvider.setUserPhone(authResponse.user!.cellphone);
+                              await authService.saveLoginData(authResponse.token!, authResponse.user!.id!);
                               Navigator.pushReplacement(
                                 context,
                                 MaterialPageRoute(builder: (_) => const SmsView()),
                               );
+                            } finally {
+                              setState(() => _isLoading = false);
                             }
-                            setState(() {
-                              _isLoading = false;
-                            });
                           }
                         },
                   style: ElevatedButton.styleFrom(

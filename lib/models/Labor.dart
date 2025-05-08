@@ -1,5 +1,5 @@
 class Labor {
-  final String id;
+  final int id;
   final String nome;
   final List<String> exames;
   final List<String> unidades;

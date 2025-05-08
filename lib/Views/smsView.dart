@@ -83,22 +83,36 @@ class SmsViewState extends State<SmsView> {
       }
     }
 
-    if (fullCode.length == 6) {
-      final user = await authService.fakeSMS(fullCode);
-      if (user != null) {
+    if (fullCode.length == 6) { 
+      try {
+        final response = await authService.requestSms(fullCode, authProvider.userPhone);
+        if (response.error != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.error!)),
+          );
+          return;
+        }
+        if (response.user == null || response.token == null) {
+          throw Exception('Dados incompletos do servidor');
+        }
+
         _timeoutTimer.cancel();
-        // Atualiza o estado de login no provider (exemplo de método login que espera um user)
-        authProvider.login(user.token!);
+        authProvider.login(response.token!);
         Navigator.pushReplacementNamed(context, '/');
+        
+      } catch (e) {
+        print(e);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
       }
-    }
+    }  
   }
 
   String get fullCode => _controllers.map((c) => c.text).join();
 
   @override
   Widget build(BuildContext context) {
-    // Aqui você recupera o número salvo no provider
     final userPhone = authProvider.userPhone;
     
     return Scaffold(

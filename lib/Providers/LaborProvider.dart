@@ -5,18 +5,18 @@ import 'package:vidamais/models/Labor.dart';
 class LaborProvider with ChangeNotifier {
   final List<Labor> _laboratorios = [
     Labor(
-      id: '1',
+      id: 1,
       nome: 'Laboratório Saúde Total',
       exames: ['Hemograma', 'Glicemia', 'Colesterol'],
       unidades: ['Centro', 'Zona Norte', 'Zona Sul'],
       convenios: ['Unimed', 'Bradesco Saúde', 'Amil'],
     ),
     Labor(
-      id: '2',
-      nome: 'Lisdev',
-      exames: ['Hemograma', 'Glicemia', 'Colesterol'],
+      id: 2,
+      nome: 'Laboratório Vida e Bem-estar',
+      exames: ['Hemograma', 'Glicemia', 'Colesterol', 'Testosterona', 'Creatinina'],
       unidades: ['Centro', 'Zona Norte', 'Zona Sul'],
-      convenios: ['Unimed', 'Bradesco Saúde', 'Amil'],
+      convenios: ['Unimed', 'Bradesco Saúde', 'Amil', 'SUS'],
     ),
   ];
 
@@ -35,9 +35,9 @@ class LaborProvider with ChangeNotifier {
 
   Labor? get selectedLabor => _selectedLabor;
 
-  Future<void> setLabor(String laborId) async {
+  Future<void> setLabor(int laborId) async {
     _selectedLabor = _laboratorios.firstWhere((lab) => lab.id == laborId);
-    await _prefs.setString('selectedLaborId', laborId);
+    await _prefs.setString('selectedLaborId', laborId.toString());
     notifyListeners();
   }
 

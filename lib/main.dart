@@ -166,8 +166,6 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
             ),
             const Spacer(),
-            
-            // Link Entrar/Criar Conta
             Center(
               child: GestureDetector(
                 onTap: () {
