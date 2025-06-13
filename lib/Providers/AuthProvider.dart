@@ -15,7 +15,7 @@ class AuthProvider with ChangeNotifier {
   }
 
 
-  void login(String userId) {
+  void login(String? userId) {
     _isLoggedIn = true;
     _userId = userId;
     notifyListeners();

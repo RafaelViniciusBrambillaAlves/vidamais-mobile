@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:qr_code_scanner/qr_code_scanner.dart';
+import 'package:provider/provider.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:vidamais/Providers/LaborProvider.dart';
 
 class QrCodeSearchView extends StatefulWidget {
   const QrCodeSearchView({super.key});
@@ -9,30 +11,59 @@ class QrCodeSearchView extends StatefulWidget {
 }
 
 class _QrCodeSearchViewState extends State<QrCodeSearchView> {
-  final GlobalKey qrKey = GlobalKey(debugLabel: 'QR');
-  QRViewController? controller;
   bool isFlashOn = false;
+  late MobileScannerController _controller;
 
-  void _onQRViewCreated(QRViewController controller) {
-    this.controller = controller;
-    controller.scannedDataStream.listen((scanData) {
-    if (scanData.code != null) {
-      Navigator.pop(context); // Fecha o scanner
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text('Código escaneado'),
-          content: Text(scanData.code!),
-        ),
-      );
-    }
-  });
+  @override
+  void initState() {
+    super.initState();
+    _controller = MobileScannerController(
+      facing: CameraFacing.back,
+      torchEnabled: false,
+    );
   }
 
   @override
   void dispose() {
-    controller?.dispose();
+    _controller.dispose();
     super.dispose();
+  }
+
+  void _handleBarcode(BarcodeCapture capture) async {
+    final List<Barcode> barcodes = capture.barcodes;
+    if (barcodes.isEmpty) return;
+
+    final code = barcodes.first.rawValue;
+    if (code == null) return;
+
+    try {
+      final uri = Uri.parse(code);
+      final idStr = uri.pathSegments.isNotEmpty ? uri.pathSegments.last : '';
+      final id = int.tryParse(idStr);
+
+      if (id != null) {
+        final laborProvider = Provider.of<LaborProvider>(context, listen: false);
+        final found = await laborProvider.setLabor(id);
+        if (found) {
+          Navigator.pushNamed(context, '/home');
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Laboratório não encontrado.')),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ID inválido no QR Code')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('QR Code inválido')),
+      );
+    }
+
+    // Evita múltiplos disparos
+    _controller.stop();
   }
 
   @override
@@ -43,36 +74,29 @@ class _QrCodeSearchViewState extends State<QrCodeSearchView> {
         actions: [
           IconButton(
             icon: Icon(isFlashOn ? Icons.flash_on : Icons.flash_off),
-            onPressed: () async {
-              await controller?.toggleFlash();
+            onPressed: () {
+              _controller.toggleTorch();
               setState(() => isFlashOn = !isFlashOn);
             },
-          )
+          ),
         ],
       ),
       body: Column(
         children: [
           Expanded(
-            child: QRView(
-              key: qrKey,
-              onQRViewCreated: _onQRViewCreated,
-              overlay: QrScannerOverlayShape(
-                borderColor: Colors.deepPurple,
-                borderRadius: 10,
-                borderLength: 30,
-                borderWidth: 10,
-                cutOutSize: MediaQuery.of(context).size.width * 0.8,
-              ),
+            child: MobileScanner(
+              controller: _controller,
+              onDetect: _handleBarcode,
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(20.0),
+          const Padding(
+            padding: EdgeInsets.all(20.0),
             child: Text(
               'Escaneie o Código QR para acesso ao laboratório e serviços disponíveis.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16,
-                color: Colors.grey[600],
+                color: Colors.grey,
               ),
             ),
           ),

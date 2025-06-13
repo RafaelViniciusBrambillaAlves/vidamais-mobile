@@ -17,11 +17,11 @@ class AuthService {
   final _secureStorage = const FlutterSecureStorage();
   final _prefs = SharedPreferences.getInstance();
 
-  Future<void> saveLoginData(String token, String userId) async {
+  Future<void> saveLoginData(String token, int userId) async {
     final prefs = await _prefs;
     await prefs.setBool('isLoggedIn', true);
     await _secureStorage.write(key: 'authToken', value: token);
-    await _secureStorage.write(key: 'userId', value: userId);
+    await _secureStorage.write(key: 'userId', value: userId.toString());
   }
 
   Future<bool> isLoggedIn() async {
@@ -40,64 +40,63 @@ class AuthService {
     await _secureStorage.delete(key: 'userId');
   }
 
-  Future<AuthResponse> fakeLogin(String email, String password) async {
-    await Future.delayed(const Duration(seconds: 1));
+  Future<AuthResponse> login(String cpf, String password) async {  
+    var response = await http.post(
+      Uri.parse('https://fa08-177-95-133-194.ngrok-free.app' + '/api/auth/login'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'cpf': cpf, 'password': password}),
+    );
 
-    if (email == '43432252838' && password == '123456') {
-      final user = User(
-        username: 'UserExemplo',
-        birthdate: DateTime(1990, 1, 1),
-        sex: 'M',
-        cellphone: '+551799999999',
-        cpf: email,
-        password: password,
-      );
+    var body = jsonDecode(response.body);
+    User user = User.fromJson(body['user']);
 
-      return AuthResponse(user: user, token: 'fake_jwt_token');
-    }
-
-    return AuthResponse(error: 'Credenciais inválidas');
+    return AuthResponse(user: user, token: body['access_token']);
   }
 
-  Future<AuthResponse> fakeSMS(String sms) async {
-    await Future.delayed(const Duration(seconds: 1));
+  Future<AuthResponse> requestSms(String code, String phone) async {
+    final response = await http.post(
+      Uri.parse('https://fa08-177-95-133-194.ngrok-free.app' + '/api/auth/sms/verify'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'code': code, 'phone': phone}),
+    );
 
-    if (sms == '111111') {
-      final user = User(
-        username: 'UserExemplo',
-        birthdate: DateTime(1990, 1, 1),
-        sex: 'M',
-        cellphone: '+551799999999',
-        cpf: '43432252838',
-        password: '123456',
-      );
-
-      return AuthResponse(user: user, token: 'fake_jwt_token');
+    final body = jsonDecode(response.body);
+    if (response.statusCode != 201) {
+      final errorMsg = body['message'] ?? 'Código inválido ou expirado';
+      return AuthResponse(error: errorMsg);
     }
 
-    return AuthResponse(error: 'Código SMS inválido');
+    return AuthResponse(
+      user: User.fromJson(body['user']),
+      token: body['token'],
+    );
   }
 
-  Future<AuthResponse> fakeCreateUser({
+  Future<void> resendSms(String phone) async {
+    await http.post(
+      Uri.parse('https://fa08-177-95-133-194.ngrok-free.app' + '/api/auth/sms/resend'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'user': phone}),
+    );
+
+    return;
+  }
+
+  Future<AuthResponse> createUser({
     required String name,
     required String phone,
     required String cpf,
     required String password,
-    required DateTime birthDate,
+    required String birthDate,  
     required String gender,
   }) async {
-    await Future.delayed(const Duration(seconds: 1));
-    if (cpf.isNotEmpty && password.length >= 6) {
-      final user = User(
-        username: name,
-        birthdate: birthDate,
-        sex: gender,
-        cellphone: phone,
-        cpf: cpf,
-        password: password,
-      );
-      return AuthResponse(user: user, token: 'fake_jwt_token');
-    }
-    return AuthResponse(error: 'Erro ao criar usuário');
+    final response = await http.post(
+      Uri.parse('https://fa08-177-95-133-194.ngrok-free.app' + '/api/auth/logon'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'fullName': name, 'phone': phone, 'cpf': cpf, 'password': password, 'birthDate': birthDate, 'gender': gender}),
+    );
+    var body = jsonDecode(response.body);
+    User user = User.fromJson(body['user']);
+    return AuthResponse(user: user, token: body['access_token']);
   }
 }

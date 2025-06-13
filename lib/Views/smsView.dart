@@ -17,7 +17,7 @@ class SmsViewState extends State<SmsView> {
   late final AuthProvider authProvider;
   final List<TextEditingController> _controllers = List.generate(6, (index) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(6, (index) => FocusNode());
-  int _countdown = 164;
+  int _countdown = 30;
   late Timer _timer;
   static const _timeoutDuration = Duration(minutes: 5);
   late Timer _timeoutTimer;
@@ -56,7 +56,17 @@ class SmsViewState extends State<SmsView> {
     super.dispose();
   }
 
+  // void _startTimer() {
+  //   _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+  //     if (_countdown > 0) {
+  //       setState(() => _countdown--);
+  //     } else {
+  //       timer.cancel();
+  //     }
+  //   });
+  // }
   void _startTimer() {
+    // Remove a linha _timer.cancel() aqui
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_countdown > 0) {
         setState(() => _countdown--);
@@ -83,22 +93,35 @@ class SmsViewState extends State<SmsView> {
       }
     }
 
-    if (fullCode.length == 6) {
-      final user = await authService.fakeSMS(fullCode);
-      if (user != null) {
+    if (fullCode.length == 6) { 
+      try {
+        final response = await authService.requestSms(fullCode, authProvider.userPhone);
+        if (response.error != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response.error!)),
+          );
+          return;
+        }
+        if (response.user == null || response.token == null) {
+          throw Exception('Dados incompletos do servidor');
+        }
+
         _timeoutTimer.cancel();
-        // Atualiza o estado de login no provider (exemplo de método login que espera um user)
-        authProvider.login(user.token!);
+        authProvider.login(response.user?.id.toString());
         Navigator.pushReplacementNamed(context, '/');
+        
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
       }
-    }
+    }  
   }
 
   String get fullCode => _controllers.map((c) => c.text).join();
 
   @override
   Widget build(BuildContext context) {
-    // Aqui você recupera o número salvo no provider
     final userPhone = authProvider.userPhone;
     
     return Scaffold(
@@ -145,9 +168,20 @@ class SmsViewState extends State<SmsView> {
                 children: [
                   TextButton(
                     onPressed: _countdown == 0
-                        ? () {
-                            setState(() => _countdown = 164);
+                        ? () async {
+                            // Cancela o timer existente antes de criar um novo
+                            if (_timer.isActive) {
+                              _timer.cancel();
+                            }
+                            setState(() => _countdown = 120);
                             _startTimer();
+                            try {
+                              await authService.resendSms(authProvider.userPhone);
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Erro ao reenviar SMS: $e')),
+                              );
+                            }
                           }
                         : null,
                     child: const Text(
@@ -155,6 +189,7 @@ class SmsViewState extends State<SmsView> {
                       style: TextStyle(color: Colors.deepPurple),
                     ),
                   ),
+
                   Text(
                     _formatDuration(),
                     style: const TextStyle(

@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:vidamais/Providers/AuthProvider.dart';
 import 'package:vidamais/Providers/LaborProvider.dart';
+import 'package:vidamais/Services/LaborService.dart';
+import 'package:vidamais/models/Schedule.dart';
+import 'package:vidamais/models/Unit.dart';
 
 class PreSchedulingScreen extends StatefulWidget {
   const PreSchedulingScreen({super.key});
@@ -15,6 +19,9 @@ class _PreSchedulingScreenState extends State<PreSchedulingScreen> {
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
   final List<String> _selectedExams = [];
+
+  late LaborService laborService;
+  late AuthProvider authProvider;
 
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
@@ -51,7 +58,7 @@ class _PreSchedulingScreenState extends State<PreSchedulingScreen> {
   @override
   Widget build(BuildContext context) {
     final laboratorio = context.watch<LaborProvider>().selectedLabor;
-
+    
     return Scaffold(
       appBar: AppBar(title: const Text('Novo Pré-Agendamento')),
       body: Padding(
@@ -62,13 +69,11 @@ class _PreSchedulingScreenState extends State<PreSchedulingScreen> {
             children: [
               _buildLaboratorioInfo(),
               const SizedBox(height: 20),
-              const Text('Exames Disponíveis:', 
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              
-              ...laboratorio?.exames.map((exam) => CheckboxListTile(
-                title: Text(exam),
-                value: _selectedExams.contains(exam),
-                onChanged: (value) => _toggleExam(exam),
+              const Text('Exames Disponíveis:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ...laboratorio?.exams.map((exam) => CheckboxListTile(
+                title: Text(exam.name),
+                value: _selectedExams.contains(exam.id.toString()),
+                onChanged: (_) => _toggleExam(exam.id.toString()),
               )) ?? [],
 
               // Seção de Data/Horário
@@ -153,10 +158,10 @@ class _PreSchedulingScreenState extends State<PreSchedulingScreen> {
         labelText: 'Selecione a Unidade',
         border: OutlineInputBorder(),
       ),
-      items: laboratorio?.unidades.map((unidade) {
+      items: laboratorio?.units?.map((unidade) {
         return DropdownMenuItem<String>(
-          value: unidade,
-          child: Text(unidade),
+          value: unidade.id.toString(),
+          child: Text(unidade.name),
         );
       }).toList() ?? [],
       onChanged: (value) => setState(() => _selectedUnidade = value),
@@ -178,7 +183,7 @@ class _PreSchedulingScreenState extends State<PreSchedulingScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(laboratorio?.nome ?? 'Laboratório não selecionado',
+                Text(laboratorio?.name ?? 'Laboratório não selecionado',
                     style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
                 _buildUnidadeDropdown(), // Substituiu o Text fixo
@@ -206,7 +211,24 @@ class _PreSchedulingScreenState extends State<PreSchedulingScreen> {
     return enderecos[unidade] ?? 'Endereço não disponível';
   }
 
-  void _submit() {
+  // void _submit() async {
+  //   if (_formKey.currentState!.validate()) {
+  //     if (_selectedExams.isEmpty) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         const SnackBar(content: Text('Selecione pelo menos um exame')),
+  //       );
+  //       return;
+  //     }
+  //     await laborService.createSchedule(Schedule(date: date, exams: exams, ));
+      
+  //     Navigator.pop(context);
+  //   }
+  // }
+
+  void _submit() async {
+    final laborProvider = Provider.of<LaborProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
     if (_formKey.currentState!.validate()) {
       if (_selectedExams.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -215,8 +237,53 @@ class _PreSchedulingScreenState extends State<PreSchedulingScreen> {
         return;
       }
 
-      // Lógica para salvar o agendamento
-      Navigator.pop(context);
+      // Verifica se uma unidade foi selecionada
+      if (_selectedUnidade == null || _selectedUnidade!.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Selecione uma unidade')),
+        );
+        return;
+      }
+
+      final laboratorio = context.read<LaborProvider>().selectedLabor;
+      final examsSelecionados = laboratorio?.exams
+          .where((exam) => _selectedExams.contains(exam.id.toString()))
+          .toList() ?? [];
+      
+      final unitSelected = laboratorio?.units.firstWhere(
+        (u) => u.id.toString() == _selectedUnidade,
+      );
+      print(unitSelected);
+      final DateTime date = DateTime(
+        _selectedDate!.year,
+        _selectedDate!.month,
+        _selectedDate!.day,
+        _selectedTime!.hour,
+        _selectedTime!.minute,
+      );
+
+      // Cria o objeto de agendamento com o unitId
+      final schedule = Schedule(
+        id: 0,
+        date: date,
+        status: 'pendente',
+        confirmCode: 'ABC123',
+        exams: examsSelecionados,
+        createdAt: DateTime.now(),
+        unit: unitSelected,
+      );
+
+      try {
+        await laborProvider.createSchedule(
+          int.parse(authProvider.userId!),
+          schedule
+        );
+        Navigator.pop(context);
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao criar agendamento: $e')),
+        );
+      }
     }
   }
 }

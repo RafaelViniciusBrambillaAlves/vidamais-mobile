@@ -22,6 +22,8 @@ class _LoginViewState extends State<LoginView> {
 
   bool _isLoading = false;
 
+  bool _obscurePassword = true;
+
   final List<Map<String, String>> _countries = [
     {'code': 'BR', 'name': 'Brasil'},
     {'code': 'AR', 'name': 'Argentina'},
@@ -59,11 +61,11 @@ class _LoginViewState extends State<LoginView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Por favor, informe o país de origem do seu documento de identificação para prosseguir.',
+                'Por favor, informe o as credenciais de identificação para prosseguir.',
                 style: TextStyle(fontSize: 16, color: Colors.grey),
               ),
               const SizedBox(height: 20),
-              // Caso queira habilitar a seleção do país, descomente o Dropdown:
+              // habilitar a seleção do país, descomente o Dropdown:
               /* DropdownButtonFormField<String>(
                 value: _selectedCountry,
                 decoration: const InputDecoration(
@@ -110,20 +112,45 @@ class _LoginViewState extends State<LoginView> {
                 },
               ),
               const SizedBox(height: 20),
+              // TextFormField(
+              //   obscureText: true,
+              //   controller: _passwordController,
+              //   keyboardType: TextInputType.text,
+              //   decoration: const InputDecoration(
+              //     labelText: 'Senha',
+              //     border: OutlineInputBorder(),
+              //     hintText: 'Senha',
+              //   ),
+              //   validator: (value) {
+              //     if (value == null || value.isEmpty) return 'Informe a senha';
+              //     return null;
+              //   },
+              // ),
               TextFormField(
-                obscureText: true,
+                obscureText: _obscurePassword,
                 controller: _passwordController,
                 keyboardType: TextInputType.text,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Senha',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
                   hintText: 'Senha',
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) return 'Informe a senha';
                   return null;
                 },
               ),
+
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -142,30 +169,32 @@ class _LoginViewState extends State<LoginView> {
                       ? null
                       : () async {
                           if (_formKey.currentState!.validate()) {
-                            setState(() {
-                              _isLoading = true;
-                            });
-                            final String cpfLimpo = _documentController.text.replaceAll(RegExp(r'[^0-9]'), '');
+                            setState(() => _isLoading = true);
                             
-                            // Chama o fakeLogin e aguarda a resposta
-                            final user = await authService.fakeLogin(
-                              cpfLimpo,
-                              _passwordController.text,
-                            );
-                            
-                            if (user != null) {
-                              // Exemplo: Armazenar algum dado (número do telefone) no provider
-                              authProvider.setUserPhone('5517...150');
-                              await authService.saveLoginData(user.token!, 'user123');
-                              // Navega para a tela de SMS
+                            try {
+                              final String cpfLimpo = _documentController.text.replaceAll(RegExp(r'[^0-9]'), '');
+                              
+                              final authResponse = await authService.login(
+                                cpfLimpo,
+                                _passwordController.text,
+                              );
+
+                              if (authResponse.error != null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(authResponse.error!)),
+                                );
+                                return;
+                              }
+
+                              authProvider.setUserPhone(authResponse.user!.cellphone);
+                              await authService.saveLoginData(authResponse.token!, authResponse.user!.id!);
                               Navigator.pushReplacement(
                                 context,
                                 MaterialPageRoute(builder: (_) => const SmsView()),
                               );
+                            } finally {
+                              setState(() => _isLoading = false);
                             }
-                            setState(() {
-                              _isLoading = false;
-                            });
                           }
                         },
                   style: ElevatedButton.styleFrom(
