@@ -3,7 +3,12 @@ import 'package:provider/provider.dart';
 import 'package:vidamais/Providers/AuthProvider.dart';
 import 'package:vidamais/Providers/LaborProvider.dart';
 import 'package:vidamais/Views/PreSchedulingView.dart';
+import 'package:vidamais/Views/ResultView.dart';
+import 'package:vidamais/Views/ScheduleView.dart';
+import 'package:vidamais/models/Agreement.dart';
+import 'package:vidamais/models/Exam.dart';
 import 'package:vidamais/models/Labor.dart';
+import 'package:vidamais/models/Unit.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({super.key});
@@ -20,7 +25,7 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _mainTabController = TabController(length: 3, vsync: this);
+    _mainTabController = TabController(length: 2, vsync: this);
     _laboratorioTabController = TabController(length: 2, vsync: this);
   }
 
@@ -51,17 +56,59 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
     final laborProvider = Provider.of<LaborProvider>(context);
     final Labor? lab = laborProvider.selectedLabor;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(lab?.nome ?? ''),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => _logout(context),
-          ),
-        ],
-      ),
-      body: Column(
+    // return Scaffold(
+    //   appBar: AppBar(
+    //     title: Text(lab?.name ?? ''),
+    //     actions: [
+    //       IconButton(
+    //         icon: const Icon(Icons.logout),
+    //         onPressed: () => _logout(context),
+    //       ),
+    //     ],
+    //   ),
+    //   // ---------------------------------------------
+    //   body: Column(
+    //     children: [
+    //       Expanded(
+    //         child: TabBarView(
+    //           controller: _mainTabController,
+    //           children: [
+    //             _buildPanelTab(lab),
+    //             _buildLaboratorioTab(authProvider),
+    //             // _buildNotificationsTab(),
+    //           ],
+    //         ),
+    //       ),
+    //       Container(
+    //         color: Colors.grey[200],
+    //         child: TabBar(
+    //           controller: _mainTabController,
+    //           labelColor: Colors.deepPurple,
+    //           unselectedLabelColor: Colors.grey,
+    //           tabs: const [
+    //             Tab(icon: Icon(Icons.dashboard), text: 'Painel',), 
+    //             Tab(icon: Icon(Icons.science), text: 'Laboratorio',),
+    //             // Tab(icon: Icon(Icons.notifications), text: 'Notificação',),
+    //           ],
+    //         ),
+    //       ),
+    //     ],
+    //   ),
+    // );
+    // ------------------------------------------------
+
+  return Scaffold(
+    appBar: AppBar(
+      title: Text(lab?.name ?? ''),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.logout),
+          onPressed: () => _logout(context),
+        ),
+      ],
+    ),
+    body: SafeArea(
+      child: Column(
         children: [
           Expanded(
             child: TabBarView(
@@ -69,7 +116,6 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
               children: [
                 _buildPanelTab(lab),
                 _buildLaboratorioTab(authProvider),
-                _buildNotificationsTab(),
               ],
             ),
           ),
@@ -82,13 +128,14 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
               tabs: const [
                 Tab(icon: Icon(Icons.dashboard), text: 'Painel',), 
                 Tab(icon: Icon(Icons.science), text: 'Laboratorio',),
-                Tab(icon: Icon(Icons.notifications), text: 'Notificação',),
               ],
             ),
           ),
         ],
       ),
-    );
+    ),
+  ); // <-- este fecha o Scaffold corretamente
+
   }
 
   Widget _buildPanelTab(Labor? lab) {
@@ -108,9 +155,9 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
           Expanded(
             child: TabBarView(
               children: [
-                _buildUnitList(lab.unidades),
-                _buildExamList(lab.exames),
-                _buildConveniosList(lab.convenios),
+                _buildUnitList(lab.units),
+                _buildExamList(lab.exams),
+                _buildConveniosList(lab.agreements),
               ],
             ),
           ),
@@ -118,38 +165,57 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
       ),
     );
   }
-  Widget _buildNotificationsTab() {
+  // Widget _buildNotificationsTab() {
 
-    return Text('notificação');
-  }
+  //   return Text('notificação');
+  // }
 
-  Widget _buildUnitList(List<String> unidades) {
+  Widget _buildUnitList(List<Unit> unidades) {
     return ListView.builder(
       itemCount: unidades.length,
       itemBuilder: (context, index) => ListTile(
-        title: Text(unidades[index]),
-        subtitle: const Text('Endereço completo da unidade'),
+        title: Text(unidades[index].name),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${unidades[index].address}, ${unidades[index].city} - ${unidades[index].state}'),
+            Text('Tel: ${unidades[index].phone}'),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildExamList(List<String> exames) {
+
+  Widget _buildExamList(List<Exam> exames) {
     return ListView.builder(
       itemCount: exames.length,
-      itemBuilder: (context, index) => ListTile(
-        title: Text(exames[index]),
-        trailing: const Icon(Icons.arrow_forward_ios),
-      ),
+      itemBuilder: (context, index) {
+        final exam = exames[index];
+        return ExpansionTile(
+          title: Text(exam.name),
+          trailing: const Icon(Icons.expand_more),
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                exam.description ?? 'Sem descrição disponível.',
+                style: const TextStyle(color: Colors.grey),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildConveniosList(List<String> convenios) {
+  Widget _buildConveniosList(List<Agreement> convenios) {
     return ListView.builder(
       itemCount: convenios.length,
       itemBuilder: (context, index) => Card(
         child: Padding(
           padding: const EdgeInsets.all(8.0),
-          child: Text(convenios[index]),
+          child: Text(convenios[index].name),
         ),
       ),
     );
@@ -170,10 +236,10 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
             controller: _laboratorioTabController,
             children: [
               authProvider.isLoggedIn 
-                  ? _buildResultados() 
+                  ? ResultView()
                   : _buildLoginMessage(),
               authProvider.isLoggedIn 
-                  ? _buildPreAgendamento() 
+                  ? ScheduleView()
                   : _buildLoginMessage(),
             ],
           ),
@@ -194,7 +260,7 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
             ),
             const SizedBox(height: 10),
             const Text(
-              'faça login ou crie uma conta',
+              'Faça login ou crie uma conta',
               style: TextStyle(fontSize: 16, color: Colors.grey),
             ),
             const SizedBox(height: 20),
@@ -209,18 +275,6 @@ class _HomeViewState extends State<HomeView> with TickerProviderStateMixin {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildResultados() {
-    return ListView(
-      children: const [
-        ListTile(
-          title: Text('Hemograma Completo'),
-          subtitle: Text('Resultado disponível: 05/01/2024'),
-          trailing: Icon(Icons.assignment),
-        ),
-      ],
     );
   }
 

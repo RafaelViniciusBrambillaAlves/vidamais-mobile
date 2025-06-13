@@ -17,7 +17,7 @@ class SmsViewState extends State<SmsView> {
   late final AuthProvider authProvider;
   final List<TextEditingController> _controllers = List.generate(6, (index) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(6, (index) => FocusNode());
-  int _countdown = 164;
+  int _countdown = 30;
   late Timer _timer;
   static const _timeoutDuration = Duration(minutes: 5);
   late Timer _timeoutTimer;
@@ -56,7 +56,17 @@ class SmsViewState extends State<SmsView> {
     super.dispose();
   }
 
+  // void _startTimer() {
+  //   _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+  //     if (_countdown > 0) {
+  //       setState(() => _countdown--);
+  //     } else {
+  //       timer.cancel();
+  //     }
+  //   });
+  // }
   void _startTimer() {
+    // Remove a linha _timer.cancel() aqui
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_countdown > 0) {
         setState(() => _countdown--);
@@ -97,11 +107,10 @@ class SmsViewState extends State<SmsView> {
         }
 
         _timeoutTimer.cancel();
-        authProvider.login(response.token!);
+        authProvider.login(response.user?.id.toString());
         Navigator.pushReplacementNamed(context, '/');
         
       } catch (e) {
-        print(e);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.toString())),
         );
@@ -159,9 +168,20 @@ class SmsViewState extends State<SmsView> {
                 children: [
                   TextButton(
                     onPressed: _countdown == 0
-                        ? () {
-                            setState(() => _countdown = 164);
+                        ? () async {
+                            // Cancela o timer existente antes de criar um novo
+                            if (_timer.isActive) {
+                              _timer.cancel();
+                            }
+                            setState(() => _countdown = 120);
                             _startTimer();
+                            try {
+                              await authService.resendSms(authProvider.userPhone);
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Erro ao reenviar SMS: $e')),
+                              );
+                            }
                           }
                         : null,
                     child: const Text(
@@ -169,6 +189,7 @@ class SmsViewState extends State<SmsView> {
                       style: TextStyle(color: Colors.deepPurple),
                     ),
                   ),
+
                   Text(
                     _formatDuration(),
                     style: const TextStyle(

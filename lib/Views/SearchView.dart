@@ -37,13 +37,33 @@ class SearchView extends StatelessWidget {
           Expanded(
             child: Consumer<LaborProvider>(
               builder: (context, provider, child) {
+                if (provider.labs.isEmpty) {
+                  return const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 20),
+                        Text('Carregando laboratórios...'),
+                      ],
+                    ),
+                  );
+                }
                 return ListView.builder(
                   itemCount: provider.labs.length,
                   itemBuilder: (context, index) {
                     final lab = provider.labs[index];
                     return ListTile(
-                      title: Text(lab.nome),
-                      subtitle: Text('Unidades: ${lab.unidades.join(', ')}'),
+                      title: Text(lab.name),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (lab.units.isNotEmpty)
+                            Text('Unidades: ${lab.units.map((u) => u.name).join(', ')}'),
+                          if (lab.units.isEmpty)
+                            Text('Nenhuma unidade cadastrada'),
+                        ],
+                      ),
                       onTap: () {
                         final laborProvider = Provider.of<LaborProvider>(context, listen: false);
                         laborProvider.setLabor(lab.id);

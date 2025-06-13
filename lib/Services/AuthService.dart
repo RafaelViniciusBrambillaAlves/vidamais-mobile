@@ -42,7 +42,7 @@ class AuthService {
 
   Future<AuthResponse> login(String cpf, String password) async {  
     var response = await http.post(
-      Uri.http('localhost:3000', 'api/auth/login'),
+      Uri.parse('https://fa08-177-95-133-194.ngrok-free.app' + '/api/auth/login'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'cpf': cpf, 'password': password}),
     );
@@ -55,7 +55,7 @@ class AuthService {
 
   Future<AuthResponse> requestSms(String code, String phone) async {
     final response = await http.post(
-      Uri.http('localhost:3000', 'api/auth/sms/verify'),
+      Uri.parse('https://fa08-177-95-133-194.ngrok-free.app' + '/api/auth/sms/verify'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'code': code, 'phone': phone}),
     );
@@ -70,18 +70,28 @@ class AuthService {
       user: User.fromJson(body['user']),
       token: body['token'],
     );
-}
+  }
+
+  Future<void> resendSms(String phone) async {
+    await http.post(
+      Uri.parse('https://fa08-177-95-133-194.ngrok-free.app' + '/api/auth/sms/resend'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'user': phone}),
+    );
+
+    return;
+  }
 
   Future<AuthResponse> createUser({
     required String name,
     required String phone,
     required String cpf,
     required String password,
-    required String birthDate,
+    required String birthDate,  
     required String gender,
   }) async {
     final response = await http.post(
-      Uri.http('localhost:3000', 'api/auth/logon'),
+      Uri.parse('https://fa08-177-95-133-194.ngrok-free.app' + '/api/auth/logon'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'fullName': name, 'phone': phone, 'cpf': cpf, 'password': password, 'birthDate': birthDate, 'gender': gender}),
     );

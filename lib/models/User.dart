@@ -1,5 +1,5 @@
 class User {
-  int? id;
+  int id;
   String username;
   DateTime birthdate;
   String sex;
@@ -8,7 +8,7 @@ class User {
   String? password;
 
   User({
-    this.id,
+    required this.id,
     required this.username,
     required this.birthdate,
     required this.sex,
